@@ -1,0 +1,251 @@
+/* Admin Panel — dark terminal style */
+.admin-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #050505;
+  font-family: 'Unifont', 'Courier New', monospace;
+  overflow: hidden;
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #222;
+  background-color: #0a0a0a;
+  flex-shrink: 0;
+}
+
+.admin-filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.admin-filter-btn {
+  display: inline-block !important;
+  padding: 3px 8px !important;
+  font-size: 0.7rem;
+  font-family: 'Unifont', monospace;
+  font-weight: bold;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border: 1px solid #333 !important;
+  background: #111 !important;
+  color: #555 !important;
+  transition: all 0.1s ease;
+  box-shadow: none !important;
+}
+
+.admin-filter-btn.active {
+  border-color: var(--level-color) !important;
+  color: var(--level-color) !important;
+  background: rgba(0,0,0,0.6) !important;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.admin-search {
+  background: #111 !important;
+  border: 1px solid #333 !important;
+  color: #aaa !important;
+  padding: 3px 8px;
+  font-family: 'Unifont', monospace;
+  font-size: 0.7rem;
+  width: 120px;
+  outline: none;
+  height: 24px;
+}
+
+.admin-search:focus {
+  border-color: #555 !important;
+}
+
+.admin-action-btn {
+  display: inline-block !important;
+  padding: 3px 8px !important;
+  font-size: 0.7rem;
+  font-family: 'Unifont', monospace;
+  cursor: pointer;
+  border: 1px solid #333 !important;
+  background: #111 !important;
+  color: #666 !important;
+  letter-spacing: 0.5px;
+  transition: all 0.1s ease;
+  box-shadow: none !important;
+  height: 24px;
+}
+
+.admin-action-btn:hover {
+  border-color: #555 !important;
+  color: #aaa !important;
+}
+
+.admin-action-btn.active {
+  border-color: #ffaa00 !important;
+  color: #ffaa00 !important;
+}
+
+.admin-clear {
+  border-color: #440000 !important;
+  color: #883333 !important;
+}
+
+.admin-clear:hover {
+  border-color: #ff4444 !important;
+  color: #ff4444 !important;
+}
+
+.admin-count {
+  padding: 3px 12px;
+  font-size: 0.65rem;
+  color: #444;
+  border-bottom: 1px solid #111;
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+}
+
+.admin-paused-badge {
+  color: #ffaa00;
+  margin-left: 8px;
+}
+
+/* Log list — takes all remaining height */
+.admin-log-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #222 #050505;
+}
+
+.admin-log-list::-webkit-scrollbar { width: 6px; }
+.admin-log-list::-webkit-scrollbar-track { background: #050505; }
+.admin-log-list::-webkit-scrollbar-thumb { background: #222; }
+
+.admin-empty {
+  color: #333;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 40px 0;
+  letter-spacing: 1px;
+}
+
+.admin-entry {
+  display: flex;
+  gap: 8px;
+  padding: 2px 4px 2px 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  border-left: 2px solid transparent;
+  word-break: break-all;
+  transition: background-color 0.08s ease;
+}
+
+.admin-entry:hover {
+  background-color: rgba(255,255,255,0.025);
+}
+
+.admin-entry-ts {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  padding-top: 1px;
+  min-width: 90px;
+  padding-left: 10px;
+  opacity: 0.45;
+}
+
+.admin-entry-level {
+  flex-shrink: 0;
+  font-weight: bold;
+  font-size: 0.65rem;
+  padding-top: 1px;
+  min-width: 28px;
+}
+
+.admin-entry-msg {
+  color: #777;
+  flex: 1;
+  white-space: pre-wrap;
+}
+
+/* ── Level-specific full row theming ── */
+
+/* LOG — neutral, site text color */
+.admin-entry-log {
+  border-left-color: #2a2a2a;
+}
+.admin-entry-log .admin-entry-ts  { color: #3a3a3a; }
+.admin-entry-log .admin-entry-level { color: #444; }
+.admin-entry-log .admin-entry-msg  { color: #666; }
+
+/* INFO — secondary accent cyan */
+.admin-entry-info {
+  border-left-color: rgba(0, 240, 255, 0.35);
+  background-color: rgba(0, 240, 255, 0.02);
+}
+.admin-entry-info .admin-entry-ts  { color: rgba(0, 240, 255, 0.3); }
+.admin-entry-info .admin-entry-level { color: #00ccdd; }
+.admin-entry-info .admin-entry-msg  { color: #559999; }
+
+/* WARN — amber, matches LLM bridge palette */
+.admin-entry-warn {
+  border-left-color: rgba(255, 200, 0, 0.4);
+  background-color: rgba(255, 200, 0, 0.025);
+}
+.admin-entry-warn .admin-entry-ts  { color: rgba(255, 200, 0, 0.3); }
+.admin-entry-warn .admin-entry-level { color: #ccaa00; }
+.admin-entry-warn .admin-entry-msg  { color: #998833; }
+
+/* ERROR — terminal red, site --terminal-red */
+.admin-entry-error {
+  border-left-color: rgba(255, 0, 60, 0.5);
+  background-color: rgba(255, 0, 60, 0.03);
+}
+.admin-entry-error .admin-entry-ts  { color: rgba(255, 0, 60, 0.35); }
+.admin-entry-error .admin-entry-level { color: #cc0033; }
+.admin-entry-error .admin-entry-msg  { color: #aa4455; }
+
+/* LLM-REQ — accent pink, site --accent-color */
+.admin-entry-llm-req {
+  border-left-color: rgba(255, 43, 109, 0.45);
+  background-color: rgba(255, 43, 109, 0.025);
+}
+.admin-entry-llm-req .admin-entry-ts  { color: rgba(255, 43, 109, 0.3); }
+.admin-entry-llm-req .admin-entry-level { color: #cc2255; }
+.admin-entry-llm-req .admin-entry-msg  { color: #994466; }
+
+/* LLM-RES — terminal green, site --terminal-green */
+.admin-entry-llm-res {
+  border-left-color: rgba(0, 255, 65, 0.35);
+  background-color: rgba(0, 255, 65, 0.02);
+}
+.admin-entry-llm-res .admin-entry-ts  { color: rgba(0, 255, 65, 0.3); }
+.admin-entry-llm-res .admin-entry-level { color: #00cc33; }
+.admin-entry-llm-res .admin-entry-msg  { color: #338844; }
+
+/* LLM-ERR — orange, between accent and red */
+.admin-entry-llm-err {
+  border-left-color: rgba(255, 102, 0, 0.5);
+  background-color: rgba(255, 102, 0, 0.03);
+}
+.admin-entry-llm-err .admin-entry-ts  { color: rgba(255, 102, 0, 0.35); }
+.admin-entry-llm-err .admin-entry-level { color: #cc5500; }
+.admin-entry-llm-err .admin-entry-msg  { color: #995533; }
+
+/* AUDIO — secondary accent blue-purple */
+.admin-entry-audio {
+  border-left-color: rgba(49, 133, 255, 0.4);
+  background-color: rgba(49, 133, 255, 0.02);
+}
+.admin-entry-audio .admin-entry-ts  { color: rgba(49, 133, 255, 0.3); }
+.admin-entry-audio .admin-entry-level { color: #3366cc; }
+.admin-entry-audio .admin-entry-msg  { color: #445588; }

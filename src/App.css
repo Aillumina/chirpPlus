@@ -1,10 +1,107 @@
+/* ── VIEWPORT-LOCKED LAYOUT — no body scroll ── */
+html, body, #root {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  background-color: #000;
+}
+
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: inherit;
-  background-color: #000000;
-  min-height: 100%;
+  max-width: 100%;
+  padding: 0;
+}
+
+.app-container {
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 10px 16px 0;
+  background-color: #000;
+  box-sizing: border-box;
+}
+
+/* Title shrinks to fit */
+.title-container {
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+
+/* Tab bar shrinks to fit */
+.tab-bar {
+  flex-shrink: 0;
+}
+
+/* Tab content area fills remaining height and scrolls internally */
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #222 #000;
+}
+
+.tab-content::-webkit-scrollbar { width: 6px; }
+.tab-content::-webkit-scrollbar-track { background: #000; }
+.tab-content::-webkit-scrollbar-thumb { background: #222; }
+
+/* Admin tab fills full height without internal scroll (it manages its own) */
+.tab-content-admin {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Footer pinned, minimal */
+.app-footer {
+  flex-shrink: 0;
+  padding: 4px 0 6px;
+  margin-top: 4px;
+  text-align: center;
+  font-size: 0.6rem;
+  color: #333;
+  font-family: var(--mono-font);
+}
+
+.app-footer a { color: var(--accent-color); text-decoration: none; }
+.app-footer a:hover { text-decoration: underline; }
+
+/* Tighten up internal heights to fit viewport */
+.visualizer-container {
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.message-transmit-wrapper {
+  margin-top: 10px;
+}
+
+.message-container {
+  height: 220px;
+}
+
+.sent-messages-container {
+  max-height: 180px;
+}
+
+textarea {
+  height: 80px;
+}
+
+/* LLM container — no extra top margin when in tab */
+.llm-conversation-container {
+  margin-top: 0;
+}
+
+/* LLM messages height reduced to fit */
+.llm-messages {
+  max-height: 200px;
 }
 
 .logo {
@@ -34,11 +131,12 @@
   color: #888;
 }
 
-/* Cyberpunk Retro Theme */
-:root {
+/* Cyberpunk Retro Theme — Standard mode (default) */
+:root,
+[data-mode="standard"] {
   --bg-color: #000000;
   --text-color: #e6e6fa;
-  --accent-color: #ff2b6d; /* Base pink color */
+  --accent-color: #ff2b6d;
   --secondary-accent: #00f0ff;
   --dark-accent: #0c0c14;
   --terminal-green: #00ff41;
@@ -46,6 +144,45 @@
   --border-color: #1f1f3a;
   --panel-bg: #0c0c14;
   --mono-font: "Courier New", monospace;
+}
+
+/* Soft mode — warm amber/teal, low contrast, easy on the eyes */
+[data-mode="soft"] {
+  --bg-color: #0a0800;
+  --text-color: #ffe8b0;
+  --accent-color: #ffaa00;
+  --secondary-accent: #00ccaa;
+  --dark-accent: #100e00;
+  --terminal-green: #aaff44;
+  --terminal-red: #ff8844;
+  --border-color: #3a2800;
+  --panel-bg: #100e00;
+}
+
+/* Ultrasound mode — electric cyan/blue, high-tech, near-invisible */
+[data-mode="ultrasound"] {
+  --bg-color: #000810;
+  --text-color: #b0e8ff;
+  --accent-color: #00eeff;
+  --secondary-accent: #0088ff;
+  --dark-accent: #000c18;
+  --terminal-green: #00ffcc;
+  --terminal-red: #ff4488;
+  --border-color: #003344;
+  --panel-bg: #000c18;
+}
+
+/* Reliable mode — solid green/white, high contrast, trustworthy */
+[data-mode="reliable"] {
+  --bg-color: #001a00;
+  --text-color: #d0ffd0;
+  --accent-color: #00cc44;
+  --secondary-accent: #88ff88;
+  --dark-accent: #001200;
+  --terminal-green: #00ff66;
+  --terminal-red: #ff6644;
+  --border-color: #004400;
+  --panel-bg: #001200;
 }
 
 * {
@@ -61,23 +198,11 @@ body {
   line-height: 1.6;
   padding: 0;
   margin: 0;
-  min-height: 100%;
-  height: 100%;
   overflow-x: hidden;
   position: relative;
 }
 
-.app-container {
-  max-width: 100%;
-  margin: 0;
-  padding: 20px;
-  min-height: 100vh;
-  background-color: #000000;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  z-index: 1;
-}
+/* (app-container defined in viewport-locked layout above) */
 
 h1, h2, h3 {
   color: var(--accent-color);
@@ -632,29 +757,7 @@ textarea {
   height: 280px;
 }
 
-/* Ensure black background everywhere, even when scrolling */
-html {
-  background-color: #000000;
-  min-height: 100%;
-  height: 100%;
-  overflow-x: hidden;
-  margin: 0;
-  padding: 0;
-}
-
-/* Add an :after pseudo-element that extends beyond the viewport */
-body:after {
-  content: '';
-  display: block;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #000000;
-  z-index: -10;
-  height: 200vh; /* Extra height to cover overscroll */
-}
+/* (html/body defined in viewport-locked layout above) */
 
 /* Add a flex container for the message and transmit containers */
 .message-transmit-wrapper {
@@ -1010,4 +1113,232 @@ body.mobile .transmit-container button {
 body.mobile textarea,
 body.mobile button {
   min-height: 44px; /* Apple's recommended minimum touch target size */
+}
+
+/* Tab navigation */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--accent-color);
+}
+
+.tab-btn {
+  display: block !important;
+  background-color: transparent;
+  border: 2px solid var(--accent-color);
+  border-bottom: none;
+  color: var(--accent-color);
+  padding: 6px 20px !important;
+  font-family: var(--mono-font);
+  font-size: 0.8rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.15s ease;
+  margin-right: 4px;
+  border-radius: 0;
+  box-shadow: none !important;
+  position: relative;
+  bottom: -2px;
+}
+
+.tab-btn:hover {
+  opacity: 0.75;
+}
+
+.tab-active {
+  opacity: 1 !important;
+  background-color: var(--accent-color);
+  color: #000 !important;
+}
+
+/* LLM tab uses amber when active */
+.tab-active.tab-llm {
+  background-color: #ffaa00;
+  border-color: #ffaa00;
+  color: #000 !important;
+}
+
+.tab-btn.tab-llm:not(.tab-active) {
+  border-color: #ffaa00;
+  color: #ffaa00;
+}
+
+/* Admin tab uses dim green when active */
+.tab-active.tab-admin {
+  background-color: #33ff88;
+  border-color: #33ff88;
+  color: #000 !important;
+}
+
+.tab-btn.tab-admin:not(.tab-active) {
+  border-color: #33ff88;
+  color: #33ff88;
+}
+
+/* Transmission speed selector */
+.tx-speed-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 6px;
+}
+
+.tx-speed-label {
+  font-size: 0.65rem;
+  color: var(--accent-color);
+  letter-spacing: 1px;
+  font-family: var(--mono-font);
+  flex-shrink: 0;
+}
+
+.tx-speed-btn {
+  display: inline-block !important;
+  padding: 2px 10px !important;
+  background: transparent !important;
+  border: 1px solid #333 !important;
+  color: #555 !important;
+  font-family: var(--mono-font);
+  font-size: 0.72rem;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.1s ease;
+  letter-spacing: 0.5px;
+}
+
+.tx-speed-btn:hover {
+  border-color: var(--accent-color) !important;
+  color: var(--accent-color) !important;
+}
+
+.tx-speed-btn.active {
+  background: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000 !important;
+  font-weight: bold;
+}
+
+.tx-speed-hint {
+  font-size: 0.6rem;
+  color: #444;
+  font-family: var(--mono-font);
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}
+
+.tx-speed-divider {
+  color: #333;
+  font-size: 0.7rem;
+  margin: 0 2px;
+}
+
+/* Soft mode button uses a teal/green accent to distinguish from speed buttons */
+.tx-mode-soft {
+  border-color: #00ccaa !important;
+  color: #00ccaa !important;
+}
+
+.tx-mode-soft:hover {
+  border-color: #00ffcc !important;
+  color: #00ffcc !important;
+}
+
+.tx-mode-soft.active {
+  background: #00ccaa !important;
+  border-color: #00ccaa !important;
+  color: #000 !important;
+}
+
+/* Ultrasound mode button — cyan/electric */
+.tx-mode-ultra {
+  border-color: #00eeff !important;
+  color: #00eeff !important;
+}
+
+.tx-mode-ultra:hover {
+  border-color: #88ffff !important;
+  color: #88ffff !important;
+}
+
+.tx-mode-ultra.active {
+  background: #00eeff !important;
+  border-color: #00eeff !important;
+  color: #000 !important;
+}
+
+/* Mode-specific background propagation */
+[data-mode="soft"] body,
+[data-mode="soft"] html,
+[data-mode="soft"] #root,
+[data-mode="soft"] .app-container {
+  background-color: #0a0800 !important;
+}
+
+[data-mode="ultrasound"] body,
+[data-mode="ultrasound"] html,
+[data-mode="ultrasound"] #root,
+[data-mode="ultrasound"] .app-container {
+  background-color: #000810 !important;
+}
+
+/* Mode transition — smooth palette swap */
+.app-container {
+  transition: background-color 0.4s ease;
+}
+
+.section-title,
+.transmit-container button,
+.tab-btn,
+.tab-active,
+.status-indicator,
+.message-container,
+.transmit-container,
+.tx-speed-btn.active {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Reliable/SAFE mode button — green, trustworthy */
+.tx-mode-reliable {
+  border-color: #00cc44 !important;
+  color: #00cc44 !important;
+}
+
+.tx-mode-reliable:hover {
+  border-color: #00ff66 !important;
+  color: #00ff66 !important;
+}
+
+.tx-mode-reliable.active {
+  background: #00cc44 !important;
+  border-color: #00cc44 !important;
+  color: #000 !important;
+}
+
+[data-mode="reliable"] body,
+[data-mode="reliable"] html,
+[data-mode="reliable"] #root,
+[data-mode="reliable"] .app-container {
+  background-color: #001a00 !important;
+}
+
+/* ChirpEx title — "Ex" styled as an advanced/plus badge */
+.title-ex {
+  display: inline-block;
+  font-size: 0.75em;
+  font-weight: bold;
+  letter-spacing: 0;
+  color: #000;
+  background: var(--accent-color);
+  padding: 1px 4px;
+  margin-left: 1px;
+  vertical-align: super;
+  line-height: 1;
+  border-radius: 2px;
+  text-transform: uppercase;
+  box-shadow: 0 0 6px var(--accent-color);
+  position: relative;
+  top: -2px;
 }

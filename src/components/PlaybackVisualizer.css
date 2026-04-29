@@ -1,0 +1,286 @@
+/* ── Playback Visualizer — cyberpunk terminal style ── */
+
+.pb-container {
+  border: 2px solid var(--accent-color);
+  background-color: var(--panel-bg);
+  font-family: 'Unifont', 'Courier New', monospace;
+  overflow: hidden;
+}
+
+/* Transmission history list */
+.pb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 6px;
+  border-bottom: 1px solid var(--border-color);
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-color) #000;
+}
+
+.pb-list::-webkit-scrollbar { width: 4px; }
+.pb-list::-webkit-scrollbar-thumb { background: var(--accent-color); }
+
+.pb-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: #444;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pb-list-item {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px !important;
+  background: transparent !important;
+  border: 1px solid #222 !important;
+  color: #666 !important;
+  font-family: 'Unifont', monospace;
+  font-size: 0.72rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.1s ease;
+  box-shadow: none !important;
+  width: 100%;
+}
+
+.pb-list-item:hover {
+  border-color: var(--accent-color) !important;
+  color: var(--text-color) !important;
+  background: rgba(255,43,109,0.05) !important;
+}
+
+.pb-list-item.active {
+  border-color: var(--accent-color) !important;
+  background: rgba(255,43,109,0.1) !important;
+  color: var(--text-color) !important;
+}
+
+.pb-badge {
+  font-size: 0.65rem;
+  font-weight: bold;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+.pb-dir-sent .pb-badge   { color: var(--terminal-green); border: 1px solid var(--terminal-green); }
+.pb-dir-received .pb-badge { color: var(--secondary-accent); border: 1px solid var(--secondary-accent); }
+
+.pb-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #888;
+}
+
+.pb-dur {
+  font-size: 0.65rem;
+  color: #555;
+  flex-shrink: 0;
+}
+
+/* 3D canvas wrapper — perspective "coming at you" effect */
+.pb-canvas-wrapper {
+  perspective: 600px;
+  perspective-origin: 50% 100%;
+  background: #000;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.pb-canvas-3d {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform: rotateX(22deg) scaleY(0.82);
+  transform-origin: bottom center;
+  transform-style: preserve-3d;
+}
+
+/* Controls bar */
+.pb-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-color);
+  background: var(--panel-bg);
+}
+
+.pb-btn {
+  display: inline-block !important;
+  padding: 4px 12px !important;
+  background: var(--accent-color) !important;
+  border: none !important;
+  color: #000 !important;
+  font-family: 'Unifont', monospace;
+  font-size: 0.72rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(255,43,109,0.3) !important;
+  transition: background 0.1s ease;
+}
+
+.pb-btn:hover {
+  background: var(--terminal-red) !important;
+}
+
+.pb-scrubber {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: #222;
+  outline: none;
+  cursor: pointer;
+}
+
+.pb-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--accent-color);
+  cursor: pointer;
+  border-radius: 0;
+  box-shadow: 0 0 6px rgba(255,43,109,0.6);
+}
+
+.pb-scrubber::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--accent-color);
+  cursor: pointer;
+  border-radius: 0;
+  border: none;
+}
+
+.pb-time {
+  font-size: 0.68rem;
+  color: var(--secondary-accent);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: 'Unifont', monospace;
+}
+
+/* Playback section toggle in Chirp tab */
+.playback-section {
+  margin-top: 12px;
+}
+
+.playback-toggle {
+  display: block !important;
+  width: 100%;
+  background: transparent !important;
+  border: 1px solid var(--accent-color) !important;
+  color: var(--accent-color) !important;
+  font-family: 'Unifont', monospace;
+  font-size: 0.78rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 5px 12px !important;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: none !important;
+  transition: background 0.1s ease;
+  text-transform: uppercase;
+}
+
+.playback-toggle:hover {
+  background: rgba(255,43,109,0.08) !important;
+}
+
+/* Speed control */
+.pb-speed-group {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.pb-speed-btn {
+  display: inline-block !important;
+  padding: 2px 6px !important;
+  background: transparent !important;
+  border: 1px solid #333 !important;
+  color: #555 !important;
+  font-family: 'Unifont', monospace;
+  font-size: 0.65rem;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.1s ease;
+  letter-spacing: 0;
+}
+
+.pb-speed-btn:hover {
+  border-color: var(--accent-color) !important;
+  color: var(--accent-color) !important;
+}
+
+.pb-speed-btn.active {
+  background: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000 !important;
+  font-weight: bold;
+}
+
+/* Fullscreen mode */
+.pb-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  display: flex;
+  flex-direction: column;
+  background: #000 !important;
+  border: none !important;
+}
+
+.pb-fullscreen .pb-canvas-wrapper {
+  flex: 1;
+  perspective: 800px;
+}
+
+.pb-fullscreen .pb-canvas-3d {
+  width: 100%;
+  height: 100%;
+  transform: rotateX(18deg) scaleY(0.88);
+}
+
+.pb-fullscreen .pb-controls {
+  padding: 10px 20px;
+  background: rgba(0,0,0,0.9);
+  border-top: 1px solid var(--accent-color);
+}
+
+.pb-fs-btn {
+  margin-left: 6px;
+  font-size: 1rem !important;
+  padding: 2px 8px !important;
+}
+
+.pb-fs-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 20px;
+  background: rgba(0,0,0,0.85);
+  border-top: 1px solid #222;
+  font-family: 'Unifont', monospace;
+  font-size: 0.8rem;
+  color: #888;
+  letter-spacing: 1px;
+}
+
+.pb-fs-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

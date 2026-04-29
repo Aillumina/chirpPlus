@@ -1,12 +1,35 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './App.css';
 import FrequencyVisualizer from './components/FrequencyVisualizer';
+import LLMConversation from './components/LLMConversation';
+import AdminPanel from './components/AdminPanel';
+import PlaybackVisualizer from './components/PlaybackVisualizer';
 import { 
   encodeText, 
   decodeAudio, 
   resetDecoder, 
-  MAXIMUM_VALID_FREQUENCY 
+  MAXIMUM_VALID_FREQUENCY,
+  CHAR_FREQUENCIES,
+  START_FREQUENCY,
+  END_FREQUENCY,
+  START_MARKER_DURATION,
+  END_MARKER_DURATION,
+  CHARACTER_DURATION,
+  CHARACTER_GAP,
+  setTransmissionSpeed,
+  getTransmissionSpeed,
+  type TransmissionSpeed,
+  setCodecMode,
+  getCodecMode,
+  type CodecMode,
+  getSoftModeCharset,
+  encodeUltrasound,
+  ULTRA_START_FREQ,
+  ULTRA_END_FREQ,
+  ULTRA_BIT_DURATION,
+  textToBits,
 } from './utils/audioCodec';
+import type { TransmissionRecord, FrequencyFrame } from './utils/transmissionStore';
 
 // Add a console log to confirm the component is loading
 console.log('Chirp system initializing');
@@ -61,6 +84,59 @@ function App() {
   const sentMessagesContainerRef = useRef<HTMLDivElement | null>(null);
   
   const [audioContextReady, setAudioContextReady] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'chirp' | 'llm' | 'admin'>('chirp');
+
+  // Transmission recording state
+  const [transmissions, setTransmissions] = useState<TransmissionRecord[]>([]);
+  const [playbackCollapsed, setPlaybackCollapsed] = useState<boolean>(true);
+  const activeTransmissionRef = useRef<TransmissionRecord | null>(null);
+
+  // Transmission speed
+  const [txSpeed, setTxSpeed] = useState<TransmissionSpeed>(getTransmissionSpeed());
+
+  const handleSpeedChange = (s: TransmissionSpeed) => {
+    setTransmissionSpeed(s);
+    setTxSpeed(s);
+    resetDecoder();
+  };
+
+  // Codec mode
+  const [codecMode, setCodecModeState] = useState<CodecMode>(getCodecMode());
+
+  const handleModeChange = (m: CodecMode) => {
+    setCodecMode(m);
+    setCodecModeState(m);
+    resetDecoder();
+    // Update body background to match mode
+    const bgMap: Record<CodecMode, string> = {
+      standard: '#000000',
+      soft: '#0a0800',
+      ultrasound: '#000810',
+      reliable: '#001a00',
+    };
+    document.body.style.backgroundColor = bgMap[m];
+    document.documentElement.style.backgroundColor = bgMap[m];
+  };
+
+  // Pause/resume the Chirp audio loop when switching tabs
+  useEffect(() => {
+    if (activeTab !== 'chirp') {
+      // Leaving chirp tab — stop the decode loop so it doesn't share decoder state
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      isListeningRef.current = false;
+      resetDecoder();
+    } else {
+      // Returning to chirp tab — resume if we were listening
+      if (isListening && !animationFrameRef.current) {
+        isListeningRef.current = true;
+        resetDecoder();
+        animationFrameRef.current = requestAnimationFrame(updateFrequencies);
+      }
+    }
+  }, [activeTab]);
   
   // Add useEffect to load the custom font stylesheet
   useEffect(() => {
@@ -173,7 +249,7 @@ function App() {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 2048;
-      analyserRef.current.smoothingTimeConstant = 0.5; // Even less smoothing for better detection
+      analyserRef.current.smoothingTimeConstant = 0.15; // Low smoothing for sharp frequency transitions
     }
     
     // If context is suspended, resume it
@@ -401,7 +477,7 @@ function App() {
       
       console.log(`Added ${isSentMessage ? 'sent' : 'received'} message to messages container`, messageDiv);
     } else {
-      console.warn('sentMessagesContainerRef.current is null - cannot update DOM directly');
+      // Chirp tab is unmounted (different tab active) — silently skip DOM update
     }
     
     // Make clear button visible if it exists
@@ -634,6 +710,21 @@ function App() {
               console.log("Beginning streaming message...");
               setIsCurrentlyStreaming(true);
               currentStreamingText.current = '';
+
+              // Start a new received transmission record
+              if (activeTransmissionRef.current) {
+                // discard any open record
+                activeTransmissionRef.current = null;
+              }
+              activeTransmissionRef.current = {
+                id: crypto.randomUUID(),
+                direction: 'received',
+                text: '',
+                frames: [{ label: 'START', frequency: START_FREQUENCY, offsetMs: 0 }],
+                startTimestamp: Date.now(),
+                durationMs: 0,
+                finalized: false,
+              };
               
               // Update UI to show we're receiving - use comprehensive check
               const statusIndicator = document.querySelector('.status-indicator');
@@ -657,6 +748,19 @@ function App() {
               if (filteredChars.length > 0) {
                 currentStreamingText.current += filteredChars;
                 console.log("Streaming chars:", filteredChars, "Current buffer:", currentStreamingText.current);
+
+                // Record each character with wall-clock offset
+                if (activeTransmissionRef.current) {
+                  for (const ch of filteredChars) {
+                    const freq = CHAR_FREQUENCIES[ch.toUpperCase()] ?? 0;
+                    activeTransmissionRef.current.frames.push({
+                      label: ch.toUpperCase(),
+                      frequency: freq,
+                      offsetMs: Date.now() - activeTransmissionRef.current.startTimestamp,
+                    });
+                    activeTransmissionRef.current.text += ch.toUpperCase();
+                  }
+                }
                 
                 // Always update the UI immediately when we get characters
                 addReceivedMessage("RECEIVING: " + currentStreamingText.current, true);
@@ -670,6 +774,17 @@ function App() {
             else if (decodedText.startsWith("[STREAM_END]") && !isTransmitting && !isActivelyTransmittingRef.current) {
               console.log("End of streaming message");
               setIsCurrentlyStreaming(false);
+
+              // Finalize the received transmission record
+              if (activeTransmissionRef.current) {
+                const rec = activeTransmissionRef.current;
+                const endOffsetMs = Date.now() - rec.startTimestamp;
+                rec.frames.push({ label: 'END', frequency: END_FREQUENCY, offsetMs: endOffsetMs });
+                rec.durationMs = endOffsetMs + Math.round(END_MARKER_DURATION * 1000);
+                rec.finalized = true;
+                setTransmissions(prev => [rec, ...prev]);
+                activeTransmissionRef.current = null;
+              }
               
               // Reset the status indicator
               const statusIndicator = document.querySelector('.status-indicator');
@@ -714,7 +829,6 @@ function App() {
               // Check if we have a validated message
               else if (decodedText.length > 12) { // "[STREAM_END] " is 12 chars
                 const finalMessage = decodedText.substring(12);
-                // MODIFIED: Allow special characters in received messages
                 const sanitizedMessage = finalMessage.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
                 addReceivedMessage(sanitizedMessage);
                 setDebugText(`Decoded: "${sanitizedMessage}"`);
@@ -833,7 +947,7 @@ function App() {
         
         // Configure the analyzer for better performance
         analyserRef.current.fftSize = 2048;  // Higher FFT for better resolution
-        analyserRef.current.smoothingTimeConstant = 0.3;  // Less smoothing for better responsiveness
+        analyserRef.current.smoothingTimeConstant = 0.15;  // Low smoothing for sharp frequency transitions
         
         // Connect the source to the analyzer
         source.connect(analyserRef.current);
@@ -961,9 +1075,65 @@ function App() {
         setDebugText('Failed to initialize audio for transmission');
         return;
       }
-      
-      // Play the audio sequence with the new hexadecimal encoding
-      await encodeText(inputText, audioContext);
+
+      // Build transmission record before encoding
+      const txText = inputText;
+      const txFrames: FrequencyFrame[] = [];
+
+      if (codecMode === 'ultrasound') {
+        // Ultrasound: record bit-level frames
+        const bits = textToBits(txText);
+        const speed = getTransmissionSpeed();
+        const bitDurMs = Math.round((ULTRA_BIT_DURATION / speed) * 1000);
+        let tMs = 30 + Math.round((ULTRA_BIT_DURATION / speed) * 1000); // after start marker
+        txFrames.push({ label: 'START', frequency: ULTRA_START_FREQ, offsetMs: 30 });
+        for (let i = 0; i < bits.length; i++) {
+          txFrames.push({
+            label: bits[i] === 1 ? '1' : '0',
+            frequency: bits[i] === 1 ? 18500 : 19500,
+            offsetMs: tMs,
+          });
+          tMs += bitDurMs + 5;
+        }
+        txFrames.push({ label: 'END', frequency: ULTRA_END_FREQ, offsetMs: tMs });
+        const txRecord: TransmissionRecord = {
+          id: crypto.randomUUID(),
+          direction: 'sent',
+          text: txText,
+          frames: txFrames,
+          startTimestamp: Date.now(),
+          durationMs: tMs + Math.round((ULTRA_BIT_DURATION / speed) * 1000),
+          finalized: true,
+        };
+        await encodeUltrasound(inputText, audioContext);
+        setTransmissions(prev => [txRecord, ...prev]);
+      } else {
+        // Standard/soft: record character-level frames
+        const txTextUp = txText.toUpperCase();
+        let t = 0.03;
+        txFrames.push({ label: 'START', frequency: START_FREQUENCY, offsetMs: Math.round(t * 1000) });
+        t += START_MARKER_DURATION + 0.03;
+        for (const char of txTextUp) {
+          const freq = CHAR_FREQUENCIES[char];
+          if (!freq) continue;
+          txFrames.push({ label: char, frequency: freq, offsetMs: Math.round(t * 1000) });
+          t += CHARACTER_DURATION + CHARACTER_GAP;
+        }
+        t += 0.03;
+        txFrames.push({ label: 'END', frequency: END_FREQUENCY, offsetMs: Math.round(t * 1000) });
+        const txDuration = Math.round((t + END_MARKER_DURATION) * 1000);
+        const txRecord: TransmissionRecord = {
+          id: crypto.randomUUID(),
+          direction: 'sent',
+          text: txTextUp,
+          frames: txFrames,
+          startTimestamp: Date.now(),
+          durationMs: txDuration,
+          finalized: true,
+        };
+        await encodeText(inputText, audioContext);
+        setTransmissions(prev => [txRecord, ...prev]);
+      }
       
       // Calculate and display transmission statistics
       const endTime = performance.now();
@@ -1416,11 +1586,35 @@ function App() {
   }, []);
   
   return (
-    <div className="app-container" onClick={handleUserInteraction}>
+    <div className="app-container" data-mode={codecMode} onClick={handleUserInteraction}>
       <div className="title-container">
-        <h1>CHIRP // AUDIO DATA TRANSMISSION</h1>
+        <h1>CHIRP<span className="title-ex">Ex</span> // AUDIO DATA TRANSMISSION</h1>
+      </div>
+
+      {/* Tab bar */}
+      <div className="tab-bar">
+        <button
+          className={`tab-btn ${activeTab === 'chirp' ? 'tab-active' : ''}`}
+          onClick={e => { e.stopPropagation(); setActiveTab('chirp'); }}
+        >
+          &gt; CHIRP
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'llm' ? 'tab-active tab-llm' : 'tab-llm'}`}
+          onClick={e => { e.stopPropagation(); setActiveTab('llm'); }}
+        >
+          &gt; LLM BRIDGE
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'admin' ? 'tab-active tab-admin' : 'tab-admin'}`}
+          onClick={e => { e.stopPropagation(); setActiveTab('admin'); }}
+        >
+          &gt; ADMIN
+        </button>
       </div>
       
+      {/* CHIRP TAB */}
+      {activeTab === 'chirp' && <div className="tab-content">
       {/* Controls are still in the DOM but hidden with CSS */}
       <div className="controls">
         <button 
@@ -1500,10 +1694,62 @@ function App() {
       
       <div className="visualizer-container">
         <div className="section-title">&gt; FREQUENCY ANALYSIS</div>
+        {/* Speed selector */}
+        <div className="tx-speed-bar">
+          <span className="tx-speed-label">TX SPEED</span>
+          {([1, 2, 4] as TransmissionSpeed[]).map(s => (
+            <button
+              key={s}
+              className={`tx-speed-btn ${txSpeed === s ? 'active' : ''}`}
+              onClick={e => { e.stopPropagation(); handleSpeedChange(s); }}
+            >
+              {s}×
+            </button>
+          ))}
+          <span className="tx-speed-hint">{Math.round(10 * txSpeed)} chars/sec</span>
+          <span className="tx-speed-divider">|</span>
+          <span className="tx-speed-label">MODE</span>
+          <button
+            className={`tx-speed-btn ${codecMode === 'standard' ? 'active' : ''}`}
+            onClick={e => { e.stopPropagation(); handleModeChange('standard'); }}
+            title="Full character set, 900–8200Hz"
+          >
+            STD
+          </button>
+          <button
+            className={`tx-speed-btn tx-mode-soft ${codecMode === 'soft' ? 'active' : ''}`}
+            onClick={e => { e.stopPropagation(); handleModeChange('soft'); }}
+            title="A-Z + 0-9 only, 220–1760Hz musical scale, quiet"
+          >
+            SOFT
+          </button>
+          <button
+            className={`tx-speed-btn tx-mode-ultra ${codecMode === 'ultrasound' ? 'active' : ''}`}
+            onClick={e => { e.stopPropagation(); handleModeChange('ultrasound'); }}
+            title="Near-ultrasound 2-FSK binary, full UTF-8, ~18–20kHz"
+          >
+            ULTRA
+          </button>
+          <button
+            className={`tx-speed-btn tx-mode-reliable ${codecMode === 'reliable' ? 'active' : ''}`}
+            onClick={e => { e.stopPropagation(); handleModeChange('reliable'); }}
+            title="Maximum reliability — slow but accurate, 150ms/char, standard frequencies"
+          >
+            SAFE
+          </button>
+          {codecMode === 'soft' && (
+            <span className="tx-speed-hint">A-Z 0-9 · 300–2000Hz · quiet</span>
+          )}
+          {codecMode === 'ultrasound' && (
+            <span className="tx-speed-hint">UTF-8 binary · 18.5/19.5kHz · inaudible</span>
+          )}
+          {codecMode === 'reliable' && (
+            <span className="tx-speed-hint">150ms/char · max reliability · ~4 chars/sec</span>
+          )}
+        </div>
         <FrequencyVisualizer 
           frequencies={frequencies} 
-          key={`viz-${debugMsgCountRef.current % 10}`}
-          transmitMode={transmitVisualization} // Pass prop to indicate transmission visualization
+          transmitMode={transmitVisualization}
         />
         {!isListening && !systemInitialized && (
           <div className="status-indicator">SYSTEM INITIALIZING<span className="terminal-cursor">_</span></div>
@@ -1570,7 +1816,32 @@ function App() {
           </button>
         </div>
       </div>
-      
+      {/* PLAYBACK SECTION */}
+      <div className="playback-section">
+        <button
+          className="playback-toggle"
+          onClick={e => { e.stopPropagation(); setPlaybackCollapsed(c => !c); }}
+        >
+          {playbackCollapsed ? '▶ PLAYBACK HISTORY' : '▼ PLAYBACK HISTORY'}
+          {transmissions.length > 0 && (
+            <span style={{ marginLeft: 8, fontSize: '0.65rem', opacity: 0.7 }}>
+              ({transmissions.length} record{transmissions.length !== 1 ? 's' : ''})
+            </span>
+          )}
+        </button>
+        {!playbackCollapsed && (
+          <PlaybackVisualizer transmissions={transmissions} />
+        )}
+      </div>
+      {/* END CHIRP TAB */}
+      </div>}
+
+      {/* LLM BRIDGE TAB */}
+      {activeTab === 'llm' && <div className="tab-content"><LLMConversation /></div>}
+
+      {/* ADMIN TAB */}
+      {activeTab === 'admin' && <div className="tab-content-admin"><AdminPanel /></div>}
+
       {/* Attribution footer */}
       <div className="app-footer">
         Built by <a href="https://x.com/icesolst" target="_blank" rel="noopener noreferrer">solst/ICE</a> [<a href="https://github.com/solst-ice/chirp" target="_blank" rel="noopener noreferrer">code</a>]
